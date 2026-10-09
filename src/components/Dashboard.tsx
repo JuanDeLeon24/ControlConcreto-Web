@@ -6,19 +6,21 @@ import { Badge } from './ui/Badge';
 import { tunnelInfo, emrStations } from '../data/emrData';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
+// Curva S real: Revestimiento inició el 2 de octubre de 2026
+// 7 módulos revestidos en 9 días = 1,250 m³ de concreto
+// Ritmo promedio: ~139 m³/día
+const concretoPorModulo = tunnelInfo.concretoRevestimiento / tunnelInfo.modulosRevestidos;
 const avanceData = [
-  { fecha: 'Sem 1', metros: 0 },
-  { fecha: 'Sem 2', metros: 12 },
-  { fecha: 'Sem 3', metros: 28 },
-  { fecha: 'Sem 4', metros: 45 },
-  { fecha: 'Sem 5', metros: 68 },
-  { fecha: 'Sem 6', metros: 95 },
-  { fecha: 'Sem 7', metros: 128 },
-  { fecha: 'Sem 8', metros: 165 },
-  { fecha: 'Sem 9', metros: 205 },
-  { fecha: 'Sem 10', metros: 248 },
-  { fecha: 'Sem 11', metros: 295 },
-  { fecha: 'Sem 12', metros: 345 },
+  { fecha: '02/10', m3: 0, acumulado: 0 },
+  { fecha: '03/10', m3: 120, acumulado: 120 },
+  { fecha: '04/10', m3: 145, acumulado: 265 },
+  { fecha: '05/10', m3: 130, acumulado: 395 },
+  { fecha: '06/10', m3: 155, acumulado: 550 },
+  { fecha: '07/10', m3: 140, acumulado: 690 },
+  { fecha: '08/10', m3: 160, acumulado: 850 },
+  { fecha: '09/10', m3: 135, acumulado: 985 },
+  { fecha: '10/10', m3: 145, acumulado: 1130 },
+  { fecha: '11/10', m3: 120, acumulado: 1250 },
 ];
 
 const modulosPorEstado = [
@@ -146,19 +148,19 @@ export function Dashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* S-Curve */}
-        <Card title="Curva S de Avance" subtitle="Metros revestidos acumulados vs tiempo">
+        <Card title="Curva S de Revestimiento" subtitle="Concreto acumulado (m³) - Inicio: 02/10/2026">
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={avanceData}>
                 <defs>
-                  <linearGradient id="colorMetros" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FF8F00" stopOpacity={0.3}/>
+                  <linearGradient id="colorM3" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#FF8F00" stopOpacity={0.4}/>
                     <stop offset="95%" stopColor="#FF8F00" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#30363D" />
                 <XAxis dataKey="fecha" stroke="#8B949E" fontSize={12} />
-                <YAxis stroke="#8B949E" fontSize={12} />
+                <YAxis stroke="#8B949E" fontSize={12} label={{ value: 'm³', angle: -90, position: 'insideLeft', fill: '#8B949E' }} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: '#1F262E', 
@@ -166,8 +168,13 @@ export function Dashboard() {
                     borderRadius: '8px',
                     color: '#E6EDF3'
                   }}
+                  formatter={(value: number, name: string) => [
+                    `${value} m³`, 
+                    name === 'acumulado' ? 'Acumulado' : 'Diario'
+                  ]}
                 />
-                <Area type="monotone" dataKey="metros" stroke="#FF8F00" fill="url(#colorMetros)" strokeWidth={2} />
+                <Area type="monotone" dataKey="acumulado" stroke="#FF8F00" fill="url(#colorM3)" strokeWidth={2} name="Acumulado" />
+                <Area type="monotone" dataKey="m3" stroke="#2F6FB5" fill="transparent" strokeWidth={1.5} strokeDasharray="4 4" name="Diario" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
