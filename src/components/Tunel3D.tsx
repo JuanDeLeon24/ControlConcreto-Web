@@ -1,21 +1,23 @@
 import { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Grid, Text, Environment } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Grid, Text, Environment, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { tunnelInfo } from '../data/emrData';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
 import { Play, Pause, Eye, EyeOff, Layers } from 'lucide-react';
 
-// Tunnel cross-section geometry (horseshoe shape)
-function createTunnelSection(semiAncho: number, alturaMuro: number, flecha: number, segments: number = 20) {
+// ============================================================
+// TUNNEL GEOMETRY - Herradura section with over-excavation
+// ============================================================
+function createTunnelSection(semiAncho: number, alturaMuro: number, flecha: number, segments: number = 24) {
   const points: THREE.Vector2[] = [];
   
-  // Left wall (bottom to top)
+  // Left wall
   points.push(new THREE.Vector2(-semiAncho, 0));
   points.push(new THREE.Vector2(-semiAncho, alturaMuro));
   
-  // Vault (arch) - semicircle
+  // Vault (arch)
   for (let i = 0; i <= segments; i++) {
     const angle = Math.PI - (i / segments) * Math.PI;
     const x = Math.cos(angle) * semiAncho;
@@ -23,94 +25,77 @@ function createTunnelSection(semiAncho: number, alturaMuro: number, flecha: numb
     points.push(new THREE.Vector2(x, y));
   }
   
-  // Right wall (top to bottom)
+  // Right wall
   points.push(new THREE.Vector2(semiAncho, 0));
   
   return points;
 }
 
-// Generate tunnel geometry with varying sections based on EMR data
+// Generate full tunnel with over-excavation variation
 function generateTunnelGeometry() {
   const { semiAncho, alturaMuro, flecha } = tunnelInfo;
-  const section = createTunnelSection(semiAncho, alturaMuro, flecha, 24);
-  const sectionPoints = section.length;
-  
-  // Create multiple rings along the tunnel length
   const tunnelLength = tunnelInfo.longitudTotal;
-  const numRings = 100;
+  const numRings = 120;
   const vertices: number[] = [];
   const indices: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
-  
+
   for (let i = 0; i < numRings; i++) {
-    const z = (i / (numRings - 1)) * tunnelLength;
     const t = i / (numRings - 1);
+    const z = t * tunnelLength;
     
-    // Vary section based on position (simulate geological variations)
-    const variation = Math.sin(t * Math.PI * 4) * 0.1;
-    const currentSemiAncho = semiAncho * (1 + variation * 0.05);
-    const currentFlecha = flecha * (1 - variation * 0.03);
+    // Over-excavation: wider at crown, narrower at walls
+    const overExcavation = 0.3 + Math.sin(t * Math.PI * 8) * 0.15;
+    const currentSemiAncho = semiAncho + overExcavation;
+    const currentFlecha = flecha + overExcavation * 0.5;
     
-    const currentSection = createTunnelSection(currentSemiAncho, alturaMuro, currentFlecha, 24);
+    const section = createTunnelSection(currentSemiAncho, alturaMuro, currentFlecha, 24);
     
-    for (let j = 0; j < currentSection.length; j++) {
-      const point = currentSection[j];
+    for (let j = 0; j < section.length; j++) {
+      const point = section[j];
       vertices.push(point.x, point.y, z);
       normals.push(0, 0, 1);
-      uvs.push(j / currentSection.length, t * 50);
+      uvs.push(j / section.length, t * 60);
     }
   }
-  
-  // Generate faces
-  const ringSize = sectionPoints;
+
+  const ringSize = createTunnelSection(semiAncho, alturaMuro, flecha, 24).length;
   for (let i = 0; i < numRings - 1; i++) {
     for (let j = 0; j < ringSize - 1; j++) {
       const a = i * ringSize + j;
       const b = a + ringSize;
       const c = a + 1;
       const d = b + 1;
-      
       indices.push(a, b, c);
       indices.push(c, b, d);
     }
   }
-  
-  // Add end caps
-  const lastRingStart = (numRings - 1) * ringSize;
-  for (let j = 1; j < ringSize - 1; j++) {
-    indices.push(lastRingStart, lastRingStart + j, lastRingStart + j + 1);
-  }
-  
+
   return { vertices, indices, normals, uvs, ringSize, numRings };
 }
 
-// Viga Base geometry (inverted U-shape beam)
-function VigaBase({ position, rotation }: { position: [number, number, number]; rotation?: [number, number, number] }) {
-  
+// ============================================================
+// COMPONENTES 3D
+// ============================================================
+
+// Viga Base - ambos lados (HD y HI) dentro del túnel
+function VigaBases() {
   const geometry = useMemo(() => {
+    // I-beam shape
     const shape = new THREE.Shape();
-    // I-beam cross section
-    const w = 1.2; // width
-    const h = 0.8; // height
-    const t = 0.15; // thickness
+    const w = 1.0;
+    const h = 0.6;
+    const t = 0.12;
     
     shape.moveTo(-w/2, 0);
-    shape.lineTo(-w/2, h*0.3);
-    shape.lineTo(-t/2, h*0.3);
-    shape.lineTo(-t/2, h*0.7);
-    shape.lineTo(-w/2, h*0.7);
     shape.lineTo(-w/2, h);
-    shape.lineTo(w/2, h);
-    shape.lineTo(w/2, h*0.7);
-    shape.lineTo(t/2, h*0.7);
-    shape.lineTo(t/2, h*0.3);
-    shape.lineTo(w/2, h*0.3);
-    shape.lineTo(w/ 2, 0);
-    shape.lineTo(t/2, 0);
-    shape.lineTo(t/2, h*0.3);
-    shape.lineTo(-t/2, h*0.3);
+    shape.lineTo(-t/2, h);
     shape.lineTo(-t/2, 0);
+    shape.lineTo(t/2, 0);
+    shape.lineTo(t/2, h);
+    shape.lineTo(w/2, h);
+    shape.lineTo(w/2, 0);
     shape.lineTo(-w/2, 0);
     
     const extrudeSettings = {
@@ -121,17 +106,24 @@ function VigaBase({ position, rotation }: { position: [number, number, number]; 
     
     return new THREE.ExtrudeGeometry(shape, extrudeSettings);
   }, []);
-  
+
   return (
-    <mesh geometry={geometry} position={position} rotation={rotation} castShadow receiveShadow>
-      <meshStandardMaterial color="#43A047" metalness={0.3} roughness={0.7} />
-    </mesh>
+    <group>
+      {/* Viga Base Derecho (HD) */}
+      <mesh geometry={geometry} position={[tunnelInfo.semiAncho - 0.6, 0.1, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#43A047" metalness={0.4} roughness={0.6} emissive="#1B5E20" emissiveIntensity={0.2} />
+      </mesh>
+      {/* Viga Base Izquierdo (HI) */}
+      <mesh geometry={geometry} position={[-tunnelInfo.semiAncho + 0.6, 0.1, 0]} rotation={[0, Math.PI, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#43A047" metalness={0.4} roughness={0.6} emissive="#1B5E20" emissiveIntensity={0.2} />
+      </mesh>
+    </group>
   );
 }
 
-// Revestimiento (lining) with progress visualization
-function Revestimiento({ progress }: { progress: number }) {
-  const { vertices, indices, normals, uvs, numRings } = useMemo(() => generateTunnelGeometry(), []);
+// Geomembrana - capa impermeable
+function Geomembrana() {
+  const { vertices, indices, normals, uvs } = useMemo(() => generateTunnelGeometry(), []);
   
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
@@ -142,90 +134,162 @@ function Revestimiento({ progress }: { progress: number }) {
     geo.computeVertexNormals();
     return geo;
   }, [vertices, indices, normals, uvs]);
-  
-  // Calculate how much of the tunnel is lined
-  void Math.floor(numRings * progress);
+
+  return (
+    <mesh geometry={geometry} receiveShadow>
+      <meshStandardMaterial 
+        color="#2196F3" 
+        metalness={0.1} 
+        roughness={0.3}
+        transparent
+        opacity={0.4}
+        side={THREE.DoubleSide}
+        emissive="#0D47A1"
+        emissiveIntensity={0.15}
+      />
+    </mesh>
+  );
+}
+
+// Revestimiento - módulos completados
+function Revestimiento() {
+  const modulosRevestidos = tunnelInfo.modulosRevestidos;
+  const longitudModulo = tunnelInfo.longitudTotal / tunnelInfo.modulosTotales;
   
   return (
     <group>
-      {/* Full tunnel structure (excavated rock) */}
-      <mesh geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial 
-          color="#5D4E37" 
-          metalness={0.1} 
-          roughness={0.9}
-          transparent
-          opacity={0.3}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      
-      {/* Lined portion */}
-      <mesh geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial 
-          color="#FF8F00" 
-          metalness={0.2} 
-          roughness={0.6}
-          transparent
-          opacity={0.9}
-          side={THREE.BackSide}
-        />
-      </mesh>
-      
-      {/* Lining rings visualization */}
-      {Array.from({ length: tunnelInfo.modulosRevestidos }).map((_, i) => {
-        const z = (i / tunnelInfo.modulosRevestidos) * tunnelInfo.longitudTotal * progress;
+      {Array.from({ length: modulosRevestidos }).map((_, i) => {
+        const z = i * longitudModulo + longitudModulo / 2;
+        
         return (
-          <mesh key={i} position={[0, 0, z]} castShadow>
-            <torusGeometry args={[tunnelInfo.semiAncho + 0.2, 0.15, 8, 32]} />
-            <meshStandardMaterial color="#FF8F00" metalness={0.3} roughness={0.5} />
-          </mesh>
+          <group key={i}>
+            {/* Ring de revestimiento */}
+            <mesh position={[0, 0, z]} castShadow>
+              <torusGeometry args={[tunnelInfo.semiAncho - 0.3, 0.25, 8, 32]} />
+              <meshStandardMaterial color="#FF8F00" metalness={0.3} roughness={0.5} emissive="#E65100" emissiveIntensity={0.2} />
+            </mesh>
+            {/* Cuerpo del módulo */}
+            <mesh position={[0, tunnelInfo.alturaMuro * 0.5, z]} castShadow>
+              <cylinderGeometry args={[tunnelInfo.semiAncho - 0.3, tunnelInfo.semiAncho - 0.3, longitudModulo, 24, 1, true]} />
+              <meshStandardMaterial 
+                color="#FF9800" 
+                metalness={0.2} 
+                roughness={0.6}
+                transparent
+                opacity={0.85}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            {/* Etiqueta del módulo */}
+            <Html position={[tunnelInfo.semiAncho + 2, tunnelInfo.alturaMuro, z]} center>
+              <div className="bg-acento text-fondo px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
+                M{i + 1}
+              </div>
+            </Html>
+          </group>
         );
       })}
     </group>
   );
 }
 
-// EMR stations markers
+// Cajas de Inspección y Drenaje
+function CajasInspeccion() {
+  const cajas = [];
+  const numCajas = 12;
+  
+  for (let i = 0; i < numCajas; i++) {
+    const z = (i / (numCajas - 1)) * tunnelInfo.longitudTotal;
+    const side = i % 2 === 0 ? 1 : -1;
+    const x = side * (tunnelInfo.semiAncho - 1.2);
+    
+    cajas.push(
+      <group key={i} position={[x, 0, z]}>
+        {/* Caja principal */}
+        <mesh position={[0, 0.4, 0]} castShadow>
+          <boxGeometry args={[0.8, 0.8, 0.8]} />
+          <meshStandardMaterial color="#9C27B0" metalness={0.3} roughness={0.5} emissive="#4A148C" emissiveIntensity={0.3} />
+        </mesh>
+        {/* Tapa */}
+        <mesh position={[0, 0.85, 0]} castShadow>
+          <boxGeometry args={[0.9, 0.1, 0.9]} />
+          <meshStandardMaterial color="#7B1FA2" metalness={0.4} roughness={0.4} />
+        </mesh>
+        {/* Indicador luminoso */}
+        <pointLight position={[0, 1.5, 0]} intensity={0.5} color="#9C27B0" distance={5} />
+      </group>
+    );
+  }
+  
+  return <group>{cajas}</group>;
+}
+
+// MH - Módulos Húmedos / Pozos de drenaje
+function ModulosHumedos() {
+  const mhs = [];
+  const numMH = 15;
+  
+  for (let i = 0; i < numMH; i++) {
+    const z = (i / (numMH - 1)) * tunnelInfo.longitudTotal + 10;
+    
+    mhs.push(
+      <group key={i} position={[0, 0, z]}>
+        {/* Estructura del MH */}
+        <mesh position={[0, 1.5, 0]} castShadow>
+          <cylinderGeometry args={[0.6, 0.6, 3, 16]} />
+          <meshStandardMaterial color="#00BCD4" metalness={0.3} roughness={0.5} emissive="#006064" emissiveIntensity={0.3} transparent opacity={0.8} />
+        </mesh>
+        {/* Tapa superior */}
+        <mesh position={[0, 3.1, 0]} castShadow>
+          <cylinderGeometry args={[0.7, 0.7, 0.15, 16]} />
+          <meshStandardMaterial color="#0097A7" metalness={0.5} roughness={0.3} />
+        </mesh>
+        {/* Etiqueta */}
+        <Html position={[0, 4, 0]} center>
+          <div className="bg-primario text-white px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
+            MH-{i + 1}
+          </div>
+        </Html>
+        {/* Luz indicadora */}
+        <pointLight position={[0, 3.5, 0]} intensity={0.8} color="#00BCD4" distance={8} />
+      </group>
+    );
+  }
+  
+  return <group>{mhs}</group>;
+}
+
+// EMR Markers con datos reales
 function EMRMarkers() {
+  const emrData = [
+    { pos: [tunnelInfo.semiAncho + 1.5, tunnelInfo.alturaMuro + tunnelInfo.flecha * 0.5, 40], label: "EMR #39", value: "394.6mm", color: "#E53935" },
+    { pos: [tunnelInfo.semiAncho + 1.5, tunnelInfo.alturaMuro + tunnelInfo.flecha * 0.5, 100], label: "EMR #44", value: "315.9mm", color: "#FF9800" },
+    { pos: [tunnelInfo.semiAncho + 1.5, tunnelInfo.alturaMuro + tunnelInfo.flecha * 0.5, 160], label: "EMR #53", value: "0mm", color: "#4CAF50" },
+    { pos: [tunnelInfo.semiAncho + 1.5, tunnelInfo.alturaMuro + tunnelInfo.flecha * 0.5, 220], label: "EMR #60", value: "25.3mm", color: "#4CAF50" },
+    { pos: [tunnelInfo.semiAncho + 1.5, tunnelInfo.alturaMuro + tunnelInfo.flecha * 0.5, 280], label: "EMR #63", value: "21.0mm", color: "#4CAF50" },
+  ];
+
   return (
     <group>
-      {[
-        { pos: [0, tunnelInfo.alturaMuro + tunnelInfo.flecha + 1, 50] as [number, number, number], label: "EMR #39", value: "394.6mm" },
-        { pos: [0, tunnelInfo.alturaMuro + tunnelInfo.flecha + 1, 100] as [number, number, number], label: "EMR #44", value: "315.9mm" },
-        { pos: [0, tunnelInfo.alturaMuro + tunnelInfo.flecha + 1, 150] as [number, number, number], label: "EMR #53", value: "0mm" },
-        { pos: [0, tunnelInfo.alturaMuro + tunnelInfo.flecha + 1, 200] as [number, number, number], label: "EMR #60", value: "25.3mm" },
-      ].map((emr, i) => (
-        <group key={i} position={emr.pos}>
+      {emrData.map((emr, i) => (
+        <group key={i} position={emr.pos as [number, number, number]}>
           <mesh>
-            <sphereGeometry args={[0.5, 16, 16]} />
-            <meshStandardMaterial color="#E53935" emissive="#E53935" emissiveIntensity={0.5} />
+            <sphereGeometry args={[0.4, 16, 16]} />
+            <meshStandardMaterial color={emr.color} emissive={emr.color} emissiveIntensity={0.6} />
           </mesh>
-          <Text
-            position={[0, 1.5, 0]}
-            fontSize={0.8}
-            color="#E6EDF3"
-            anchorX="center"
-            anchorY="bottom"
-          >
-            {emr.label}
-          </Text>
-          <Text
-            position={[0, 0.8, 0]}
-            fontSize={0.6}
-            color="#FF8F00"
-            anchorX="center"
-            anchorY="bottom"
-          >
-            {emr.value}
-          </Text>
+          <Html center>
+            <div className="bg-superficie border border-borde px-3 py-2 rounded-lg text-center min-w-[100px]">
+              <p className="text-xs font-bold text-texto">{emr.label}</p>
+              <p className="text-sm font-bold" style={{ color: emr.color }}>{emr.value}</p>
+            </div>
+          </Html>
         </group>
       ))}
     </group>
   );
 }
 
-// Camera animation for tour mode
+// Cámara de recorrido mejorada
 function CameraTour({ isPlaying }: { isPlaying: boolean }) {
   const { camera } = useThree();
   const timeRef = useRef(0);
@@ -233,108 +297,186 @@ function CameraTour({ isPlaying }: { isPlaying: boolean }) {
   useFrame((_, delta) => {
     if (!isPlaying) return;
     
-    timeRef.current += delta * 0.1;
+    timeRef.current += delta * 0.15;
     const t = timeRef.current;
     
-    // Smooth camera path through the tunnel
-    const z = (Math.sin(t) * 0.5 + 0.5) * tunnelInfo.longitudTotal;
-    const angle = t * 2;
-    const radius = 15;
+    // Recorrido suave a través del túnel
+    const z = ((t * 5) % tunnelInfo.longitudTotal);
+    const angle = Math.sin(t * 0.5) * 0.3;
+    const height = tunnelInfo.alturaMuro + 2 + Math.sin(t * 0.8) * 1.5;
     
     camera.position.set(
-      Math.cos(angle) * radius,
-      tunnelInfo.alturaMuro + tunnelInfo.flecha * 0.5 + Math.sin(t * 3) * 3,
+      Math.sin(angle) * 3,
+      height,
       z
     );
-    camera.lookAt(0, tunnelInfo.alturaMuro * 0.5, z + 10);
+    camera.lookAt(
+      0,
+      tunnelInfo.alturaMuro * 0.5,
+      z + 15
+    );
   });
   
   return null;
 }
 
-// Main 3D Scene
-function TunnelScene({ showVigaBase, showEMR, isTourPlaying }: {
+// ============================================================
+// ESCENA PRINCIPAL
+// ============================================================
+function TunnelScene({ showVigaBase, showGeomembrana, showRevestimiento, showCajas, showMH, showEMR, isTourPlaying, selectedModule, onSelectModule }: {
   showVigaBase: boolean;
+  showGeomembrana: boolean;
   showRevestimiento: boolean;
+  showCajas: boolean;
+  showMH: boolean;
   showEMR: boolean;
   isTourPlaying: boolean;
+  selectedModule: number | null;
+  onSelectModule: (mod: number | null) => void;
 }) {
+  const { vertices, indices, normals, uvs } = useMemo(() => generateTunnelGeometry(), []);
+  
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }, [vertices, indices, normals, uvs]);
+
   return (
     <>
-      <PerspectiveCamera makeDefault position={[20, 15, 30]} fov={60} />
+      <PerspectiveCamera makeDefault position={[25, 20, 40]} fov={55} />
       <CameraTour isPlaying={isTourPlaying} />
       <OrbitControls 
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        maxDistance={200}
-        minDistance={5}
-        maxPolarAngle={Math.PI * 0.9}
+        maxDistance={250}
+        minDistance={3}
+        maxPolarAngle={Math.PI * 0.85}
+        target={[0, tunnelInfo.alturaMuro, tunnelInfo.longitudTotal / 2]}
       />
       
-      {/* Lighting */}
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[50, 50, 50]} intensity={1} castShadow />
-      <directionalLight position={[-30, 30, -30]} intensity={0.5} />
-      <pointLight position={[0, tunnelInfo.alturaMuro + tunnelInfo.flecha + 5, 50]} intensity={1} color="#FF8F00" />
-      <pointLight position={[0, tunnelInfo.alturaMuro + tunnelInfo.flecha + 5, 150]} intensity={1} color="#2F6FB5" />
+      {/* Lighting mejorada */}
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[50, 80, 50]} intensity={1.2} castShadow />
+      <directionalLight position={[-40, 60, -40]} intensity={0.6} />
+      
+      {/* Luces a lo largo del túnel */}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <pointLight 
+          key={i} 
+          position={[0, tunnelInfo.alturaMuro + tunnelInfo.flecha + 3, (i / 7) * tunnelInfo.longitudTotal]} 
+          intensity={1.5} 
+          color="#FFA726" 
+          distance={30} 
+        />
+      ))}
       
       {/* Environment */}
       <Environment preset="warehouse" />
+      
+      {/* Grid */}
       <Grid 
-        position={[0, -0.1, tunnelInfo.longitudTotal / 2]}
-        args={[100, tunnelInfo.longitudTotal + 50]}
+        position={[0, -0.05, tunnelInfo.longitudTotal / 2]}
+        args={[120, tunnelInfo.longitudTotal + 100]}
         cellSize={5}
         cellThickness={0.5}
-        cellColor="#30363D"
+        cellColor="#1E3A5F"
         sectionSize={20}
         sectionThickness={1}
-        sectionColor="#484F58"
-        fadeDistance={150}
+        sectionColor="#2F6FB5"
+        fadeDistance={200}
         infiniteGrid={false}
       />
       
-      {/* Tunnel structure */}
-      <Revestimiento progress={tunnelInfo.avanceRevestimiento / 100} />
+      {/* Estructura del túnel (roca) */}
+      <mesh geometry={geometry} receiveShadow castShadow>
+        <meshStandardMaterial 
+          color="#3E2723" 
+          metalness={0.05} 
+          roughness={0.95}
+          transparent
+          opacity={0.4}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
       
-      {/* Viga Base */}
-      {showVigaBase && (
-        <VigaBase position={[-tunnelInfo.semiAncho - 0.5, 0, 0]} />
-      )}
-      
-      {/* EMR Markers */}
+      {/* Capas activas */}
+      {showGeomembrana && <Geomembrana />}
+      {showVigaBase && <VigaBases />}
+      {showRevestimiento && <Revestimiento />}
+      {showCajas && <CajasInspeccion />}
+      {showMH && <ModulosHumedos />}
       {showEMR && <EMRMarkers />}
       
-      {/* Station markers along tunnel */}
-      {Array.from({ length: 10 }).map((_, i) => {
-        const z = (i / 9) * tunnelInfo.longitudTotal;
+      {/* Marcadores de abscisa */}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const z = (i / 11) * tunnelInfo.longitudTotal;
         return (
           <group key={i} position={[0, 0, z]}>
-            <mesh position={[0, -0.5, 0]}>
-              <boxGeometry args={[0.2, 1, 0.2]} />
-              <meshStandardMaterial color="#8B949E" />
+            <mesh position={[0, -0.3, 0]}>
+              <boxGeometry args={[0.15, 0.6, 0.15]} />
+              <meshStandardMaterial color="#607D8B" />
             </mesh>
             <Text
-              position={[0, -1.5, 0]}
-              fontSize={0.5}
-              color="#8B949E"
+              position={[0, -1, 0]}
+              fontSize={0.6}
+              color="#90A4AE"
               anchorX="center"
             >
-              K{(tunnelInfo.abscisaInicio + (i / 9) * tunnelInfo.longitudTotal / 1000).toFixed(3)}
+              K{(tunnelInfo.abscisaInicio + (i / 11) * tunnelInfo.longitudTotal / 1000).toFixed(3)}
             </Text>
           </group>
+        );
+      })}
+      
+      {/* Módulos seleccionables */}
+      {Array.from({ length: tunnelInfo.modulosTotales }).map((_, i) => {
+        const z = (i / tunnelInfo.modulosTotales) * tunnelInfo.longitudTotal;
+        const isRevestido = i < tunnelInfo.modulosRevestidos;
+        const isSelected = selectedModule === i;
+        
+        return (
+          <mesh 
+            key={i} 
+            position={[0, tunnelInfo.alturaMuro * 0.5, z]} 
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectModule(isSelected ? null : i);
+            }}
+          >
+            <boxGeometry args={[tunnelInfo.semiAncho * 2, tunnelInfo.alturaMuro + tunnelInfo.flecha, 1.5]} />
+            <meshStandardMaterial 
+              color={isSelected ? "#FF8F00" : isRevestido ? "#4CAF50" : "#37474F"}
+              transparent
+              opacity={isSelected ? 0.6 : 0.15}
+              emissive={isSelected ? "#FF8F00" : isRevestido ? "#4CAF50" : "#000000"}
+              emissiveIntensity={isSelected ? 0.5 : 0.1}
+            />
+          </mesh>
         );
       })}
     </>
   );
 }
 
+// ============================================================
+// COMPONENTE PRINCIPAL
+// ============================================================
 export function Tunel3D() {
   const [showVigaBase, setShowVigaBase] = useState(true);
+  const [showGeomembrana, setShowGeomembrana] = useState(true);
   const [showRevestimiento, setShowRevestimiento] = useState(true);
+  const [showCajas, setShowCajas] = useState(true);
+  const [showMH, setShowMH] = useState(true);
   const [showEMR, setShowEMR] = useState(true);
   const [isTourPlaying, setIsTourPlaying] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [selectedModule, setSelectedModule] = useState<number | null>(null);
 
   return (
     <div className="space-y-6">
@@ -354,13 +496,18 @@ export function Tunel3D() {
 
       {/* 3D Viewer */}
       <Card className="p-0 overflow-hidden">
-        <div className="relative h-[500px] md:h-[600px] lg:h-[700px]">
+        <div className="relative h-[500px] md:h-[600px] lg:h-[700px] bg-fondo">
           <Canvas shadows>
             <TunnelScene 
               showVigaBase={showVigaBase}
+              showGeomembrana={showGeomembrana}
               showRevestimiento={showRevestimiento}
+              showCajas={showCajas}
+              showMH={showMH}
               showEMR={showEMR}
               isTourPlaying={isTourPlaying}
+              selectedModule={selectedModule}
+              onSelectModule={setSelectedModule}
             />
           </Canvas>
           
@@ -383,52 +530,79 @@ export function Tunel3D() {
                 className="flex items-center gap-2 px-4 py-2 bg-superficie text-texto rounded-lg hover:bg-borde transition-colors"
               >
                 {showControls ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                Controles
+                Capas
               </button>
             </div>
           </div>
           
           {/* Layer controls */}
           {showControls && (
-            <div className="absolute bottom-4 left-4 right-4 md:right-auto bg-superficie/95 backdrop-blur-sm rounded-xl border border-borde p-4 pointer-events-auto">
-              <h3 className="font-semibold text-sm mb-3">Capas</h3>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showVigaBase}
-                    onChange={(e) => setShowVigaBase(e.target.checked)}
-                    className="w-4 h-4 rounded accent-[#43A047]"
-                  />
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-exito" />
-                    <span className="text-sm">Viga Base (100%)</span>
-                  </div>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showRevestimiento}
-                    onChange={(e) => setShowRevestimiento(e.target.checked)}
-                    className="w-4 h-4 rounded accent-[#FF8F00]"
-                  />
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-acento" />
-                    <span className="text-sm">Revestimiento (5.2%)</span>
-                  </div>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showEMR}
-                    onChange={(e) => setShowEMR(e.target.checked)}
-                    className="w-4 h-4 rounded accent-[#E53935]"
-                  />
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-peligro" />
-                    <span className="text-sm">Estaciones EMR (25)</span>
-                  </div>
-                </label>
+            <div className="absolute bottom-4 left-4 right-4 md:right-auto md:max-w-sm bg-superficie/95 backdrop-blur-sm rounded-xl border border-borde p-4 pointer-events-auto">
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <Layers className="w-4 h-4" />
+                Capas del Modelo
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'viga', label: 'Viga Base', color: '#43A047', active: showVigaBase, toggle: () => setShowVigaBase(!showVigaBase), pct: '100%' },
+                  { key: 'geo', label: 'Geomembrana', color: '#2196F3', active: showGeomembrana, toggle: () => setShowGeomembrana(!showGeomembrana), pct: '75%' },
+                  { key: 'rev', label: 'Revestimiento', color: '#FF8F00', active: showRevestimiento, toggle: () => setShowRevestimiento(!showRevestimiento), pct: '5.2%' },
+                  { key: 'cajas', label: 'Cajas Insp.', color: '#9C27B0', active: showCajas, toggle: () => setShowCajas(!showCajas), pct: '100%' },
+                  { key: 'mh', label: 'MH Drenaje', color: '#00BCD4', active: showMH, toggle: () => setShowMH(!showMH), pct: '100%' },
+                  { key: 'emr', label: 'EMR', color: '#E53935', active: showEMR, toggle: () => setShowEMR(!showEMR), pct: '25 est.' },
+                ].map((layer) => (
+                  <button
+                    key={layer.key}
+                    onClick={layer.toggle}
+                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all text-left ${
+                      layer.active 
+                        ? 'border-primario bg-primario/10' 
+                        : 'border-borde bg-superficie opacity-50'
+                    }`}
+                  >
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: layer.color }} />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{layer.label}</p>
+                      <p className="text-xs text-texto-secundario">{layer.pct}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Info del módulo seleccionado */}
+          {selectedModule !== null && (
+            <div className="absolute top-4 right-4 bg-superficie/95 backdrop-blur-sm rounded-xl border border-borde p-4 pointer-events-auto max-w-xs">
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-semibold">Módulo {selectedModule + 1}</h3>
+                <button onClick={() => setSelectedModule(null)} className="text-texto-secundario hover:text-texto">
+                  <EyeOff className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-texto-secundario">Estado</span>
+                  <Badge variant={selectedModule < tunnelInfo.modulosRevestidos ? 'success' : 'default'} size="sm">
+                    {selectedModule < tunnelInfo.modulosRevestidos ? 'Revestido' : 'En excavación'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-texto-secundario">Viga Base</span>
+                  <Badge variant="success" size="sm">100%</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-texto-secundario">Revestimiento</span>
+                  <Badge variant={selectedModule < tunnelInfo.modulosRevestidos ? 'success' : 'danger'} size="sm">
+                    {selectedModule < tunnelInfo.modulosRevestidos ? '100%' : '0%'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-texto-secundario">Abscisa</span>
+                  <span className="font-medium">
+                    K{(tunnelInfo.abscisaInicio + (selectedModule / tunnelInfo.modulosTotales) * tunnelInfo.longitudTotal / 1000).toFixed(3)}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -436,15 +610,15 @@ export function Tunel3D() {
       </Card>
 
       {/* Info cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card title="Geometría del Túnel" subtitle="Sección tipo herradura">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card title="Geometría" subtitle="Sección herradura">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-texto-secundario">Semi-ancho</span>
               <span className="font-medium">{tunnelInfo.semiAncho}m</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-texto-secundario">Altura de muros</span>
+              <span className="text-texto-secundario">Altura muros</span>
               <span className="font-medium">{tunnelInfo.alturaMuro}m</span>
             </div>
             <div className="flex justify-between">
@@ -452,39 +626,45 @@ export function Tunel3D() {
               <span className="font-medium">{tunnelInfo.flecha}m</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-texto-secundario">Longitud total</span>
+              <span className="text-texto-secundario">Longitud</span>
               <span className="font-medium">{tunnelInfo.longitudTotal}m</span>
             </div>
           </div>
         </Card>
         
-        <Card title="Viga Base" subtitle="Estado de avance">
+        <Card title="Viga Base" subtitle="Ambos lados">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-texto-secundario text-sm">Progreso</span>
               <Badge variant="success">100%</Badge>
             </div>
-            <div className="text-sm text-texto-secundario">
-              137 módulos completados en ambos lados (HD y HI)
-            </div>
-            <div className="text-sm text-texto-secundario">
-              Concreto total: 3,400 m³
-            </div>
+            <div className="text-sm text-texto-secundario">137 módulos × 2 lados (HD + HI)</div>
+            <div className="text-sm text-texto-secundario">Concreto: 3,400 m³</div>
           </div>
         </Card>
         
-        <Card title="Revestimiento" subtitle="Estado actual">
+        <Card title="Revestimiento" subtitle="7 módulos">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-texto-secundario text-sm">Progreso</span>
               <Badge variant="warning">5.2%</Badge>
             </div>
-            <div className="text-sm text-texto-secundario">
-              7 módulos revestidos de 137 totales
+            <div className="text-sm text-texto-secundario">Módulos 1-7 completados</div>
+            <div className="text-sm text-texto-secundario">Concreto: 1,250 m³</div>
+          </div>
+        </Card>
+        
+        <Card title="Infraestructura" subtitle="Cajas y MH">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-texto-secundario text-sm">Cajas inspección</span>
+              <Badge variant="success">100%</Badge>
             </div>
-            <div className="text-sm text-texto-secundario">
-              Concreto: 1,250 m³ aplicados
+            <div className="flex items-center justify-between">
+              <span className="text-texto-secundario text-sm">MH drenaje</span>
+              <Badge variant="success">100%</Badge>
             </div>
+            <div className="text-sm text-texto-secundario">12 cajas + 15 MH instalados</div>
           </div>
         </Card>
       </div>
