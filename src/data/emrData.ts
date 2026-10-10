@@ -1,9 +1,6 @@
-export interface EMRStation {
-  numero: string;
-  acumulado_mm: number;
-  abscisa: number;
-  terreno: string;
-}
+import type { EMRStation } from '../shared/types/emr';
+
+export type { EMRStation };
 
 export const emrStations: EMRStation[] = [
   { numero: "#39", acumulado_mm: 394.6, abscisa: 6629.6, terreno: "III" },

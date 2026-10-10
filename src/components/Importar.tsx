@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, FileUp } from 'lucide-react';
-import { Card } from './ui/Card';
+import { Card, CardHeader, CardBody } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
+import { Button } from './ui/Button';
 
 interface ImportacionEstado {
   estado: 'idle' | 'cargando' | 'exito' | 'error';
@@ -18,7 +19,7 @@ export function Importar() {
 
   const simularImportacion = (nombreArchivo: string) => {
     setEstado({ estado: 'cargando', nombreArchivo });
-    
+
     setTimeout(() => {
       setEstado({
         estado: 'exito',
@@ -46,183 +47,203 @@ export function Importar() {
     handleFileUpload(e.dataTransfer.files);
   };
 
+  const resetEstado = () => {
+    setEstado({ estado: 'idle' });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-texto">Importar Reporte</h1>
-          <p className="text-texto-secundario mt-1">Carga el archivo Excel del reporte diario de actividades</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">Importar Reporte</h1>
+          <p className="text-neutral-500 dark:text-neutral-400 mt-1">Carga el archivo Excel del reporte diario de actividades</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upload Area */}
-        <Card title="Cargar Archivo" subtitle="Formato .xlsx o .xlsm">
-          <div
-            onDragOver={(e) => { e.preventDefault(); setArrastrando(true); }}
-            onDragLeave={() => setArrastrando(false)}
-            onDrop={handleDrop}
-            className={`
-              relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
-              ${arrastrando 
-                ? 'border-acento bg-acento/10' 
-                : 'border-borde hover:border-acento/50 hover:bg-superficie/50'
-              }
-            `}
-            onClick={() => document.getElementById('fileInput')?.click()}
-          >
-            <input
-              id="fileInput"
-              type="file"
-              accept=".xlsx,.xlsm"
-              onChange={(e) => handleFileUpload(e.target.files)}
-              className="hidden"
-            />
-            
-            <div className="flex flex-col items-center">
-              {estado.estado === 'cargando' ? (
-                <>
-                  <div className="w-16 h-16 bg-acento/20 rounded-full flex items-center justify-center mb-4">
-                    <FileSpreadsheet className="w-8 h-8 text-acento animate-pulse" />
-                  </div>
-                  <p className="font-medium text-texto mb-2">Procesando {estado.nombreArchivo}...</p>
-                  <div className="w-full max-w-xs">
-                    <ProgressBar value={65} color="bg-acento" showLabel={false} />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="w-16 h-16 bg-borde rounded-full flex items-center justify-center mb-4">
-                    <Upload className="w-8 h-8 text-texto-secundario" />
-                  </div>
-                  <p className="font-medium text-texto mb-2">
-                    Arrastre su archivo aquí o haga clic para seleccionar
-                  </p>
-                  <p className="text-sm text-texto-secundario">
-                    Formatos soportados: .xlsx, .xlsm (máx. 50MB)
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
+        <Card>
+          <CardHeader
+            title="Cargar Archivo"
+            subtitle="Formato .xlsx o .xlsm"
+          />
+          <CardBody>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setArrastrando(true); }}
+              onDragLeave={() => setArrastrando(false)}
+              onDrop={handleDrop}
+              className={`
+                relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
+                ${arrastrando
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                  : 'border-neutral-300 dark:border-neutral-600 hover:border-primary-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
+                }
+              `}
+              onClick={() => document.getElementById('fileInput')?.click()}
+            >
+              <input
+                id="fileInput"
+                type="file"
+                accept=".xlsx,.xlsm"
+                onChange={(e) => handleFileUpload(e.target.files)}
+                className="hidden"
+              />
 
-          {/* Formato esperado */}
-          <div className="mt-6 p-4 bg-superficie rounded-lg border border-borde">
-            <h4 className="font-medium text-sm mb-3">Formato esperado del archivo:</h4>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-exito" />
-                <span className="text-texto-secundario">Matriz cant.</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-exito" />
-                <span className="text-texto-secundario">Avances_Diarios</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-exito" />
-                <span className="text-texto-secundario">BD_Actividades</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-exito" />
-                <span className="text-texto-secundario">Módulos_VB</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-exito" />
-                <span className="text-texto-secundario">Formato Túnel_Dia</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-exito" />
-                <span className="text-texto-secundario">Formato Túnel_Noche</span>
+              <div className="flex flex-col items-center">
+                {estado.estado === 'cargando' ? (
+                  <>
+                    <div className="w-16 h-16 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center mb-4">
+                      <FileSpreadsheet className="w-8 h-8 text-primary-600 animate-pulse" aria-hidden="true" />
+                    </div>
+                    <p className="font-medium text-neutral-900 dark:text-white mb-2">Procesando {estado.nombreArchivo}...</p>
+                    <div className="w-full max-w-xs">
+                      <ProgressBar value={65} variant="primary" showLabel={false} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 bg-neutral-200 dark:bg-neutral-700 rounded-full flex items-center justify-center mb-4">
+                      <Upload className="w-8 h-8 text-neutral-500 dark:text-neutral-400" aria-hidden="true" />
+                    </div>
+                    <p className="font-medium text-neutral-900 dark:text-white mb-2">
+                      Arrastre su archivo aquí o haga clic para seleccionar
+                    </p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                      Formatos soportados: .xlsx, .xlsm (máx. 50MB)
+                    </p>
+                  </>
+                )}
               </div>
             </div>
-          </div>
+
+            {/* Formato esperado */}
+            <div className="mt-6 p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <h4 className="font-medium text-sm mb-3">Formato esperado del archivo:</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
+                  <span className="text-neutral-500 dark:text-neutral-400">Matriz cant.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
+                  <span className="text-neutral-500 dark:text-neutral-400">Avances_Diarios</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
+                  <span className="text-neutral-500 dark:text-neutral-400">BD_Actividades</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
+                  <span className="text-neutral-500 dark:text-neutral-400">Módulos_VB</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
+                  <span className="text-neutral-500 dark:text-neutral-400">Formato Túnel_Dia</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
+                  <span className="text-neutral-500 dark:text-neutral-400">Formato Túnel_Noche</span>
+                </div>
+              </div>
+            </div>
+          </CardBody>
         </Card>
 
         {/* Resultado */}
-        <Card title="Resultado de Importación" subtitle="Detalle del procesamiento">
-          {estado.estado === 'idle' && (
-            <div className="text-center py-12">
-              <FileUp className="w-16 h-16 text-texto-secundario mx-auto mb-4" />
-              <p className="text-texto-secundario">Cargue un archivo para ver el resultado</p>
-            </div>
-          )}
-
-          {estado.estado === 'cargando' && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-acento/10 rounded-lg border border-acento/20">
-                <div className="animate-spin w-5 h-5 border-2 border-acento border-t-transparent rounded-full" />
-                <span>Leyendo hojas del archivo...</span>
+        <Card>
+          <CardHeader
+            title="Resultado de Importación"
+            subtitle="Detalle del procesamiento"
+          />
+          <CardBody>
+            {estado.estado === 'idle' && (
+              <div className="text-center py-12">
+                <FileUp className="w-16 h-16 text-neutral-400 mx-auto mb-4" aria-hidden="true" />
+                <p className="text-neutral-500 dark:text-neutral-400">Cargue un archivo para ver el resultado</p>
               </div>
-              <div className="space-y-2">
-                <ProgressBar value={30} color="bg-acento" showLabel={false} />
-              </div>
-            </div>
-          )}
+            )}
 
-          {estado.estado === 'exito' && estado.nombreArchivo && (
-            <div className="space-y-4">
-              {/* Resumen */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-exito/10 rounded-lg border border-exito/20 text-center">
-                  <p className="text-3xl font-bold text-exito">{estado.hojasEncontradas}</p>
-                  <p className="text-sm text-texto-secundario">Hojas encontradas</p>
+            {estado.estado === 'cargando' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
+                  <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" aria-hidden="true" />
+                  <span>Leyendo hojas del archivo...</span>
                 </div>
-                <div className="p-4 bg-primario/10 rounded-lg border border-primario/20 text-center">
-                  <p className="text-3xl font-bold text-primario">{estado.registrosImportados}</p>
-                  <p className="text-sm text-texto-secundario">Registros importados</p>
-                </div>
-              </div>
-
-              {/* Archivo procesado */}
-              <div className="flex items-center gap-3 p-4 bg-superficie rounded-lg border border-borde">
-                <CheckCircle2 className="w-8 h-8 text-exito flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-texto truncate">{estado.nombreArchivo}</p>
-                  <p className="text-sm text-texto-secundario">Procesado correctamente</p>
-                </div>
-                <Badge variant="success">Completado</Badge>
-              </div>
-
-              {/* Advertencias */}
-              {estado.advertencias && estado.advertencias.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="font-medium text-sm flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-advertencia" />
-                    Advertencias ({estado.advertencias.length})
-                  </h4>
-                  {estado.advertencias.map((adv, i) => (
-                    <div key={i} className="flex items-start gap-2 p-3 bg-advertencia/10 rounded-lg border border-advertencia/20">
-                      <AlertTriangle className="w-4 h-4 text-advertencia flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-texto">{adv}</p>
-                    </div>
-                  ))}
+                  <ProgressBar value={30} variant="primary" showLabel={false} />
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Botón de acción */}
-              <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-exito text-white font-semibold rounded-lg hover:bg-exito/90 transition-colors">
-                <CheckCircle2 className="w-5 h-5" />
-                Confirmar y Guardar
-              </button>
-            </div>
-          )}
+            {estado.estado === 'exito' && estado.nombreArchivo && (
+              <div className="space-y-4">
+                {/* Resumen */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 text-center">
+                    <p className="text-3xl font-bold text-green-600">{estado.hojasEncontradas}</p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Hojas encontradas</p>
+                  </div>
+                  <div className="p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800 text-center">
+                    <p className="text-3xl font-bold text-primary-600">{estado.registrosImportados}</p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Registros importados</p>
+                  </div>
+                </div>
 
-          {estado.estado === 'error' && (
-            <div className="text-center py-8">
-              <XCircle className="w-16 h-16 text-peligro mx-auto mb-4" />
-              <p className="font-medium text-peligro mb-2">Error al procesar el archivo</p>
-              <p className="text-sm text-texto-secundario mb-4">
-                Verifique que el archivo tenga el formato correcto
-              </p>
-              <button 
-                onClick={() => setEstado({ estado: 'idle' })}
-                className="px-4 py-2 bg-peligro text-white rounded-lg hover:bg-peligro/90 transition-colors"
-              >
-                Intentar nuevamente
-              </button>
-            </div>
-          )}
+                {/* Archivo procesado */}
+                <div className="flex items-center gap-3 p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <CheckCircle2 className="w-8 h-8 text-green-600 flex-shrink-0" aria-hidden="true" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-neutral-900 dark:text-white truncate">{estado.nombreArchivo}</p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Procesado correctamente</p>
+                  </div>
+                  <Badge variant="success">Completado</Badge>
+                </div>
+
+                {/* Advertencias */}
+                {estado.advertencias && estado.advertencias.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                      Advertencias ({estado.advertencias.length})
+                    </h4>
+                    {estado.advertencias.map((adv, i) => (
+                      <div key={i} className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <p className="text-sm text-neutral-900 dark:text-white">{adv}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Botón de acción */}
+                <Button
+                  onClick={resetEstado}
+                  className="w-full"
+                  leftIcon={<CheckCircle2 className="w-5 h-5" />}
+                  variant="success"
+                >
+                  Confirmar y Guardar
+                </Button>
+              </div>
+            )}
+
+            {estado.estado === 'error' && (
+              <div className="text-center py-8">
+                <XCircle className="w-16 h-16 text-red-600 mx-auto mb-4" aria-hidden="true" />
+                <p className="font-medium text-red-600 mb-2">Error al procesar el archivo</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+                  Verifique que el archivo tenga el formato correcto
+                </p>
+                <Button
+                  onClick={resetEstado}
+                  variant="danger"
+                >
+                  Intentar nuevamente
+                </Button>
+              </div>
+            )}
+          </CardBody>
         </Card>
       </div>
     </div>

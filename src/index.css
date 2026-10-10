@@ -1,47 +1,73 @@
 @import "tailwindcss";
+@import "./styles/brand.css";
 
-@theme {
-  --color-fondo: #0D1117;
-  --color-superficie: #161B22;
-  --color-tarjeta: #1F262E;
-  --color-acento: #FF8F00;
-  --color-primario: #2F6FB5;
-  --color-exito: #43A047;
-  --color-advertencia: #FDD835;
-  --color-peligro: #E53935;
-  --color-info: #1E88E5;
-  --color-texto: #E6EDF3;
-  --color-texto-secundario: #8B949E;
-  --color-borde: #30363D;
-}
-
-* {
+html,
+body,
+#root {
+  height: 100%;
   margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  background: #07090c;
+  overscroll-behavior: none;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: var(--color-fondo);
-  color: var(--color-texto);
-  line-height: 1.5;
+  overflow: hidden;
+  font-family: var(--font-brand);
+  -webkit-tap-highlight-color: transparent;
 }
 
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+input[type="range"] {
+  accent-color: #fbbf24;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--color-fondo);
+/* Animaciones personalizadas */
+@keyframes progress-stripe {
+  0% { background-position: 0 0; }
+  100% { background-position: 20px 0; }
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--color-borde);
-  border-radius: 4px;
+.animate-progress-stripe {
+  animation: progress-stripe 1s linear infinite;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-texto-secundario);
+/* Focus visible para accesibilidad */
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Scrollbar personalizada para paneles */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Transiciones suaves para el sidebar */
+.app-sidebar {
+  transition: transform 0.25s ease, width 0.25s ease;
+}
+
+/* Estilos para el canvas 3D */
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* Utilidades para el túnel */
+.tunnel-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
